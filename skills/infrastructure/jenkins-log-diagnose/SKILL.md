@@ -70,10 +70,10 @@ Jenkins 构建日志可达数百 MB，**读取方式必须严格遵守以下纪�
 
 ## Step 1：收集构建信息 + 第 1 轮日志（尾部 200 行）
 
-**URL 模式** —— 先看元数据（结果 / 节点 / 耗时 / **最近构建历史**，不读日志）：
+**URL 模式** —— 日志输出头部自动携带本次构建元数据（结果 / 节点 / 耗时）；`--info` 仅在需要单独查看元数据时使用（可选，诊断流程不依赖）：
 
 ```bash
-python <skill目录>/scripts/fetch_jenkins_log.py --url "<构建URL>" --info
+python <skill目录>/scripts/fetch_jenkins_log.py --url "<构建URL>" --info   # 可选：仅看元数据
 # 脚本自动探测后端：原生 Jenkins（/api/json）或 openEuler Log Viewer（/api/build/*）
 # 原生 Jenkins 认证三选一：--user <用户> --token <token>；环境变量 JENKINS_USER/JENKINS_TOKEN；
 #                          URL 内嵌 http://user:token@jenkins.example.com/job/foo/123/
@@ -92,7 +92,6 @@ python <skill目录>/scripts/fetch_jenkins_log.py --file build.log
 
 **脚本输出内容**：
 - 构建元数据：结果、Agent 节点（仅原生模式）、开始时间、耗时（URL 模式）
-- **最近构建历史**（最近 6 次：编号、结果、时间、耗时，标记当前构建）—— 交叉验证的关键输入，见 Step 2
 - 收尾标记：`Finished: FAILURE/SUCCESS/ABORTED` 是否存在（**缺失 = 日志被截断，Agent 掉线/平台强杀的强信号**）
 - 本轮特征扫描：窗口内命中的错误特征行（平台/Agent、资源/存储、网络/依赖服务、业务/代码 四组，帮助快速定性）
 - 本轮窗口：带行号的原始日志片段（默认尾部 200 行）
@@ -102,9 +101,9 @@ python <skill目录>/scripts/fetch_jenkins_log.py --file build.log
 
 ---
 
-## Step 2：尾部快速分诊 + 历史交叉验证
+## Step 2：尾部快速分诊
 
-根据第 1 轮窗口内容做初步定性（结合脚本头部的特征扫描）：
+根据第 1 轮窗口内容做初步定性（结合脚本头部的特征扫描），**直接基于当前构建日志定性，不做历史交叉验证**：
 
 | 尾部现象 | 初步定性 |
 |---------|---------|
@@ -113,22 +112,14 @@ python <skill目录>/scripts/fetch_jenkins_log.py --file build.log
 | `No space left on device` / `OutOfMemoryError` / exit 137 / Killed | 基础设施 — 资源 |
 | 依赖下载超时/拒绝（`Could not transfer` / `fatal: unable to access` / 502-504） | 基础设施 — 网络/依赖服务 |
 | 构建启动阶段 git clone 环境仓库失败（业务代码尚未开始构建） | 基础设施 — 网络/依赖服务 |
+| 依赖服务返回错误页（404/502 HTML 被当作 JSON 解析报错） | 基础设施 — 网络/依赖服务 |
 | `[ERROR] Xxx.java:[行,列] cannot find symbol` / `COMPILATION ERROR` | 业务侧 — 编译错误 |
 | `Tests run: X, Failures: Y (Y>0)` / `FAILED tests/...::...` / Traceback | 业务侧 — 测试失败 |
 | groovy / Jenkinsfile 报错 / `No such property` | 配置错误 |
 | `Finished: ABORTED` | 需确认：人工取消 / 上游抢占 / 超时中断 |
 
-**历史交叉验证**（利用 `--info` 输出的最近构建历史，不定性时必须做）：
-
-| 历史模式 | 定性含义 |
-|---------|---------|
-| 多次连续失败且耗时相近、错误相同 | 持续性故障（非瞬时抖动），看错误指向定性 |
-| 之前成功过完整构建（耗时长）、现在快速失败 | 任务本身可正常运行 → 倾向环境/依赖变化 |
-| 历史上间歇性失败（成功失败交替） | 倾向 flaky / 概率性（类型 E） |
-| 从某次变更起由绿转红并持续 | 倾向业务侧引入（对比该时间点的代码变更） |
-
-> **多个 Job 同步以相同方式失败 → 强烈的基础设施信号**（单一代码问题不会同时出现在不相关的 Job 上）。
-> **快速失败 vs 正常时长失败**：耗时远小于历史正常值（如 3 分钟 vs 11 分钟）通常意味着失败在早期环境准备阶段，业务代码尚未执行。
+> **多个 Job 同步以相同方式失败 → 强烈的基础设施信号**（单一代码问题不会同时出现在不相关的 Job 上）——该信号由告警流水线侧的聚合数据（受影响 job 数）提供，单 build 分析时无需自查。
+> **快速失败信号**：耗时远小于该类构建正常值（如 0 秒/几秒即失败）通常意味着失败在启动/环境准备阶段，业务代码尚未执行——本次构建元数据中的耗时即可判断。
 
 ---
 
@@ -194,7 +185,6 @@ python <skill目录>/scripts/fetch_jenkins_log.py --url "<构建URL>" --round 2
 **Job**: [Job名称] #[构建号]
 **节点**: [Agent 节点名，仅原生模式有]
 **时间**: [开始时间]（耗时 [X]）
-**历史**: [最近构建结果摘要，如 "#4 FAILURE(3分21秒) / #3 FAILURE(3分13秒) ← 当前 / #2 SUCCESS(10分52秒)"]
 **日志读取**: 尾部 [N]/1000 行（第 [k] 轮定性）
 
 ## 故障定性
@@ -203,7 +193,6 @@ python <skill目录>/scripts/fetch_jenkins_log.py --url "<构建URL>" --round 2
 - **子类**: 编译错误 | 单测失败 | 代码门禁 | 平台/Agent | 资源存储 | 网络依赖服务
 - **根因**: [一句话直接原因]
 - **关键标识**: `[最关键的一行错误，带行号，如 L531: fatal: unable to access '...' Connection timed out]`
-- **交叉验证**: [历史/重试/耗时维度的佐证，如 "间隔4.8小时的重试 #4 同样错误，非瞬时抖动；#2 曾完整构建成功"]
 - **责任方**: 业务团队 / 基础设施团队
 - **建议**: [修复 XX 文件 XX 行 / 重试构建 / 上报基础设施团队检查 XX]
 ```
@@ -241,13 +230,11 @@ Keep/Holmes 告警流水线以 headless 方式调用本 skill（输入 = 告警�
 - 构建页面 URL（如 `https://ci.openeuler.openatom.cn/job/multiarch/job/openeuler/job/custom/job/scanoss-job/1292/`），来自告警 `labels.build_url`
 - 凭据：环境变量 `JENKINS_USER` / `JENKINS_TOKEN`（不落盘、不回显）
 
-**调用流程**（两步，输出即 LLM 输入）：
+**调用流程**（单命令，输出即 LLM 输入；**不做历史交叉验证，直接分析当前构建日志**）：
 
 ```bash
-# 第 1 步：元数据 + 最近构建历史（交叉验证输入，不读日志）
-python <skill目录>/scripts/fetch_jenkins_log.py --url "<build_url>" --info
-# 第 2 步：关键字过滤后的第 1 轮日志
 python <skill目录>/scripts/fetch_jenkins_log.py --url "<build_url>" --round 1 --filter
+# 输出头部自动携带本次构建元数据（结果/节点/耗时）；仅第 1 轮 UNCERTAIN 时追加 --round 2 --filter
 ```
 
 **流水线 token 纪律（比交互模式更严）**：
@@ -255,7 +242,7 @@ python <skill目录>/scripts/fetch_jenkins_log.py --url "<build_url>" --round 1 
 - 仅当第 1 轮 `UNCERTAIN` 时，允许追加 1 轮（`--round 2 --filter`，累计 ≤400 行）；**禁止**在流水线模式用满 5 轮 / 读取全量日志
 - 报告必须包含：**定性（基础设施/业务/配置/不确定）+ 子类 + 根因 + 关键标识 + 责任方 + 处理建议**，末行 `CLASSIFICATION: XXX`（见 Step 5 契约）
 
-**实测样例（scanoss-job #1292）**：元数据显示连续 6 天准点失败、全部 0 秒耗时（定时任务启动即挂）；过滤后日志含 `JSONException ... <html>` + `404 Not Found/nginx`——插件 getToken 拿到 404 HTML，判依赖服务故障（非表面 fastjson 堆栈暗示的代码问题）。142 行日志 → 过滤输出 ~40 行。
+**实测样例（scanoss-job #1292）**：元数据显示 0 秒耗时（启动即挂，业务代码未执行）；过滤后日志含 `JSONException ... <html>` + `404 Not Found/nginx`——插件 getToken 拿到 404 HTML，判依赖服务故障（非表面 fastjson 堆栈暗示的代码问题）。142 行日志 → 过滤输出 ~40 行。
 
 ---
 
@@ -337,6 +324,9 @@ Skill 自动识别为 openEuler Log Viewer 后端（原生 Jenkins 探测返回 
 ---
 
 ## 更新日志
+
+### v1.2.1 (2026-10-13)
+- 按流水线需求简化：**移除历史交叉验证**，直接分析当前构建日志（机器调用改单命令 `--round 1 --filter`；报告移除"历史/交叉验证"字段；多 job 批量失败信号改由流水线聚合数据提供）
 
 ### v1.2.0 (2026-10-13)
 - 新增 `--filter` 关键字过滤：仅输出特征命中行 ±2 行上下文与尾部 5 行（宽泛补充词表覆盖 error/exception/404/502 等，宁可多留不可漏关键行），实测 142 行 → ~40 行
