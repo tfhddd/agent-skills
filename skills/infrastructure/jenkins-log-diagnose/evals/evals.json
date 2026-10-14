@@ -1,0 +1,41 @@
+{
+  "skill_name": "jenkins-log-diagnose",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Jenkins 上的构建失败了，帮我看看是代码问题还是环境问题：http://jenkins.example.com/job/order-service/1234/",
+      "expected_output": "先用 --info 获取构建元数据，再用 --round 1 读取尾部200行；窗口内可定性则直接输出报告（业务侧/基础设施侧/配置/不确定 + 根因 + 关键标识 + 责任方）；无法定性则继续 --round 2，累计读取不超过1000行",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "这是 Jenkins 日志文件 build-5678.log，帮我分析下是业务问题还是基础设施问题",
+      "expected_output": "通过脚本 --file 读取（禁止直接 Read 整个文件），第1轮只读尾部200行，无法定性时按轮次渐进向上读，最多1000行，输出定性报告并标注责任方",
+      "files": ["build-5678.log"]
+    },
+    {
+      "id": 3,
+      "prompt": "Jenkins job 挂了，日志我直接贴给你：...Could not transfer artifact junit:junit:4.13.2 from/to nexus: Connection timed out... Finished: FAILURE",
+      "expected_output": "直接分析粘贴内容（不触发日志读取），定性为基础设施侧（网络/依赖服务，类型A3），责任方为基础设施团队，建议重试并上报 Nexus 状态",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "这个日志太长了分析不出来，你把整个日志文件都读一遍：/tmp/console-full.log（约50万行）",
+      "expected_output": "拒绝全量读取，坚持窗口式渐进策略：--file --round 1（尾部200行）开始，无法定性逐轮上探，累计最多1000行，超出后输出'无法定性'报告并建议人工分析",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "Jenkins 构建挂了，前1000行都看不出问题，继续往上读到5000行吧",
+      "expected_output": "拒绝超过1000行硬上限的读取，说明token保护规则，输出'无法定性'报告（含已排除项和线索），建议人工分析完整日志或提供更多上下文",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "帮我看下这个构建为什么失败：https://log-ci.openeuler.openatom.cn/job/multiarch/src-openeuler/x86-64/qt6-qtlanguageserver/3",
+      "expected_output": "脚本自动探测为 openEuler Log Viewer 后端，--info 获取元数据+最近构建历史，--round 1 读尾部200行；结合历史交叉验证（多次快速失败/曾完整成功）定性，输出报告含责任方与交叉验证字段",
+      "files": []
+    }
+  ]
+}

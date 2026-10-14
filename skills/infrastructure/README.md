@@ -31,6 +31,7 @@ infrastructure/
 | 名字 | 功能 |
 | --- | --- |
 | Github-action-diagnose | 诊断昇腾CI github action问题 |
+| Jenkins-log-diagnose | 分析Jenkins构建日志，区分业务侧/基础设施侧故障 |
 
 ### Github-action-diagnose
 
@@ -99,6 +100,20 @@ infrastructure/
 失败发生在业务代码层：Python Traceback 指向 tests/test_model.py:42，
 AssertionError: expected accuracy > 0.8, got 0.75。
 ```
+
+### Jenkins-log-diagnose
+
+#### 使用示例
+
+```
+/jenkins-log-diagnose http://jenkins.example.com/job/order-service/1234/
+```
+
+技能会自动：
+1. 通过 `--info` 获取构建元数据（结果 / Agent 节点 / 耗时 / **最近构建历史**），URL 自动探测后端（原生 Jenkins / openEuler Log Viewer，如 `log-ci.openeuler.openatom.cn`）
+2. 窗口式读取日志：第 1 轮只读**尾部 200 行**
+3. 无法定性时逐轮向上再读 200 行，**累计最多 1000 行**（token 保护，脚本层面强制拒绝超限）
+4. 输出定性报告：业务侧（编译/测试/门禁）vs 基础设施侧（平台/Agent/资源/网络依赖），含责任方与历史交叉验证
 
 ## 团队规范
 
