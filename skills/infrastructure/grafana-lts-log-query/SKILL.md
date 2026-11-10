@@ -20,6 +20,9 @@ compatibility:
 ## 前置要求
 
 - Python 3.8+（脚本仅标准库）
+- 本 skill 的标准部署路径（Holmes/K8s 部署的 sparse clone 挂载点，命令一律用绝对路径）：
+  `/etc/holmes/skills-git/skills/infrastructure/grafana-lts-log-query`
+  （非 Holmes 环境使用时，把下述命令里的该前缀替换为实际 skill 目录）
 - 凭据（环境变量，不落盘、不回显，**禁止在输出中 echo 凭据**）：
   - `HOLMES_GRAFANA_TOKEN`：Grafana Service Account Token（优先，Bearer 认证）
   - 或 `HOLMES_GRAFANA_USER`（默认 admin）+ `HOLMES_GRAFANA_PASSWORD`（Basic 兜底）
@@ -67,14 +70,14 @@ compatibility:
 ## Step 1：量级探测（必做）
 
 ```bash
-python3 <skill目录>/scripts/query_lts_logs.py --cluster hk --service om-webserver --level error --count
+python3 /etc/holmes/skills-git/skills/infrastructure/grafana-lts-log-query/scripts/query_lts_logs.py --cluster hk --service om-webserver --level error --count
 # → 单行数字。0 条：放宽级别/时间窗再试，或该服务是纯文本流（见"已知坑"3）
 ```
 
 ## Step 2：错误类型分布（可选，量大时优先于明细）
 
 ```bash
-python3 <skill目录>/scripts/query_lts_logs.py --cluster hk --service om-webserver --level error --top-msg --minutes 360
+python3 /etc/holmes/skills-git/skills/infrastructure/grafana-lts-log-query/scripts/query_lts_logs.py --cluster hk --service om-webserver --level error --top-msg --minutes 360
 # → msg + 条数 Top20，一眼看出主要错误类型
 ```
 
@@ -82,17 +85,17 @@ python3 <skill目录>/scripts/query_lts_logs.py --cluster hk --service om-webser
 
 ```bash
 # 最新 100 条（默认最近 60 分钟，按需 --minutes 放大）
-python3 <skill目录>/scripts/query_lts_logs.py --cluster hk --service om-webserver --level error
+python3 /etc/holmes/skills-git/skills/infrastructure/grafana-lts-log-query/scripts/query_lts_logs.py --cluster hk --service om-webserver --level error
 
 # 大盘 URL 直接转查询（窗口取 URL 里的 from）
-python3 <skill目录>/scripts/query_lts_logs.py --url "<大盘URL>"
+python3 /etc/holmes/skills-git/skills/infrastructure/grafana-lts-log-query/scripts/query_lts_logs.py --url "<大盘URL>"
 
 # 按请求 ID 追踪完整链路
-python3 <skill目录>/scripts/query_lts_logs.py --cluster hk \
+python3 /etc/holmes/skills-git/skills/infrastructure/grafana-lts-log-query/scripts/query_lts_logs.py --cluster hk \
   --extra "coalesce(request_id, trace_id) like '6f9c2e11-47c9-11f1-946a-0255ac100abc'"
 
 # squid 访问日志（cn12 流自动带 msg='squid_access'）
-python3 <skill目录>/scripts/query_lts_logs.py --cluster cn12 --extra "url like '%openeuler.org%'"
+python3 /etc/holmes/skills-git/skills/infrastructure/grafana-lts-log-query/scripts/query_lts_logs.py --cluster cn12 --extra "url like '%openeuler.org%'"
 ```
 
 输出头部 `# ...` 行携带集群/窗口/模式元数据；正文 TSV 首行为列名；末行 `LTS_QUERY: OK rows=N`（机器可读契约）。
@@ -111,8 +114,8 @@ python3 <skill目录>/scripts/query_lts_logs.py --cluster cn12 --extra "url like
 headless 单命令，凭据来自环境变量：
 
 ```bash
-python3 <skill目录>/scripts/query_lts_logs.py --cluster <cluster> --service <service> --level error --count   # 第 1 步
-python3 <skill目录>/scripts/query_lts_logs.py --cluster <cluster> --service <service> --level error --minutes 60  # 第 2 步（仅 count>0 时）
+python3 /etc/holmes/skills-git/skills/infrastructure/grafana-lts-log-query/scripts/query_lts_logs.py --cluster <cluster> --service <service> --level error --count   # 第 1 步
+python3 /etc/holmes/skills-git/skills/infrastructure/grafana-lts-log-query/scripts/query_lts_logs.py --cluster <cluster> --service <service> --level error --minutes 60  # 第 2 步（仅 count>0 时）
 ```
 
 - 输入到 LLM 的日志内容 **≤100 行**（明细 limit 默认 100 即上限）
