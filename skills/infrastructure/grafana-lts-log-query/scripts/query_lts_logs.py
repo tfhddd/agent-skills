@@ -109,12 +109,14 @@ STREAMS = {
         "structured_since": None,
     },
     "community-lts-guiyang": {
-        "aliases": ["ascend-guiyang-prod-cluster-001", "guiyang"],
+        # "ascend-guiyang-prod-cluster" = Prometheus 指标里的 cluster 标签值（告警携带它），
+        # LTS 流的 cluster 字段则带 -001 后缀——两个口径都收，告警→日志直查不断链
+        "aliases": ["ascend-guiyang-prod-cluster-001", "ascend-guiyang-prod-cluster", "guiyang"],
         "cluster": "ascend-guiyang-prod-cluster-001",
         "region": "cn-southwest-2",
         "groupId": "c6f14fba-548c-4774-92de-0674c572bce2",
         "streamId": "06080cd6-c5f6-431b-b395-1a986763bcb8",
-        "note": "Ascend/CANN 账号（robot-issue-manage）",
+        "note": "Ascend/CANN 账号（om-webserver/OneID、robot-issue-manage 等；无 pod 列，服务级过滤即可）",
         "structured_since": None,
     },
     "community-lts-bj1": {
