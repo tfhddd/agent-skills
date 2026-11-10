@@ -32,6 +32,7 @@ infrastructure/
 | --- | --- |
 | Github-action-diagnose | 诊断昇腾CI github action问题 |
 | Jenkins-log-diagnose | 分析Jenkins构建日志，区分业务侧/基础设施侧故障 |
+| Grafana-lts-log-query | 经 Grafana 查询华为云 LTS 社区服务日志（count/分布/明细，token 保护纪律） |
 
 ### Github-action-diagnose
 
@@ -114,6 +115,22 @@ AssertionError: expected accuracy > 0.8, got 0.75。
 2. 窗口式读取日志：第 1 轮只读**尾部 200 行**
 3. 无法定性时逐轮向上再读 200 行，**累计最多 1000 行**（token 保护，脚本层面强制拒绝超限）
 4. 输出定性报告：业务侧（编译/测试/门禁）vs 基础设施侧（平台/Agent/资源/网络依赖），含责任方与历史交叉验证
+
+### Grafana-lts-log-query
+
+#### 使用示例
+
+```
+/grafana-lts-log-query 香港集群的 om-webserver 最近一小时有什么报错？
+```
+
+技能会自动：
+1. `--count` 量级探测（最便宜，永远第一步）
+2. `--top-msg` 错误类型分布（按 msg 常量列聚合）
+3. 明细查询（默认 limit 100、窗口 60 分钟，token 保护硬上限 1000 行 / 7d）
+4. 引用关键错误行输出结论，过滤已知噪声（如 `not a excepted url: /metrics`）
+
+支持《社区服务日志（LTS）》大盘 URL 直接转查询；squid 访问日志走 `--cluster cn12`（自动加 `msg='squid_access'` 过滤）。
 
 ## 团队规范
 

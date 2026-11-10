@@ -1,0 +1,41 @@
+{
+  "skill_name": "grafana-lts-log-query",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "香港集群的 om-webserver 最近一小时有什么报错？",
+      "expected_output": "先执行 --count 量级探测（--cluster hk --service om-webserver --level error），count>0 后可 --top-msg 看错误类型分布，再查明细（默认 limit 100、窗口 60 分钟）；输出引用关键错误行（时间+级别+msg），不粘贴大段日志",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "https://monitoring.osinfra.cn/grafana/d/community-service-logs/7fb54dc?orgId=1&from=now-24h&to=now&var-cluster=community-lts-hk&var-service=om-webserver&var-level=%25 帮我看看这个大盘里这个服务的日志",
+      "expected_output": "用 --url 模式解析出 cluster=community-lts-hk / service=om-webserver / level=% / 窗口 24h，先 --top-msg 或 --count 探量级，再抽明细分析",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "把这个服务最近 7 天的所有日志都拉出来，我要全部日志",
+      "expected_output": "拒绝全量拉取：坚持查询纪律——先 --count 探量级，再按错误类型 --top-msg 聚合定位，明细只取需要的窗口与行数（limit 默认 100，上限 1000）",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "查一下这个请求为什么失败：request_id 6f9c2e11-47c9-11f1-946a-0255ac100abc，在香港集群",
+      "expected_output": "用 --extra \"coalesce(request_id, trace_id) like '6f9c2e11-...'\"（双日志器方言必须 coalesce，不能只查 request_id），拉该请求全链路日志后按时间序分析失败环节",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "北京机器人流今天 error 好多，是不是出什么大问题了",
+      "expected_output": "先 --count 确认量级，--top-msg 后识别出 'not a excepted url: /metrics' 为已知噪声（机器人框架把 Prometheus 抓取记成 error，占九成以上，非业务故障），过滤该噪声后再看真实错误",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "香港的 cve-manager 服务查不到任何日志，是不是你查询坏了",
+      "expected_output": "识别为纯文本服务（cve-manager/doc-search-deployment/api-cve 无结构化字段，按 service 过滤恒空），空结果不是筛选错误；建议改用 --sql 按时间窗拉原始行或走 LTS 原始检索",
+      "files": []
+    }
+  ]
+}
