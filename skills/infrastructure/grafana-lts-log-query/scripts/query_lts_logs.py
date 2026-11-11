@@ -120,12 +120,15 @@ STREAMS = {
         "structured_since": None,
     },
     "community-lts-bj1": {
-        "aliases": ["bj1-infra-cluster", "bj1"],
+        # "mindspore-cn-north1-new-cluster" = Prometheus 指标里的 cluster 标签值
+        # （community=infrastructure 的 app-cla-server/cla-backend 跑在该集群，ns cla-migration），
+        # LTS 流的 cluster 字段是 bj1-infra-cluster——两个口径都收，告警→日志直查不断链
+        "aliases": ["bj1-infra-cluster", "mindspore-cn-north1-new-cluster", "bj1"],
         "cluster": "bj1-infra-cluster",
         "region": "cn-north-1",
         "groupId": "31692633-169b-4ed4-bd14-e36f65297b16",
         "streamId": "12e3b23c-232c-4fb1-807d-6a9adb6abede",
-        "note": "MindSpore/Infra 账号（cla-backend）",
+        "note": "MindSpore/Infra 账号（app-cla-server/cla-backend、cla 相关服务）",
         "structured_since": None,
     },
     "community-lts-cn12": {
