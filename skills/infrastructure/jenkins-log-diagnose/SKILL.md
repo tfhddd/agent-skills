@@ -61,10 +61,32 @@ Jenkins 构建日志可达数百 MB，**读取方式必须严格遵守以下纪�
 |---------|------|---------|
 | Jenkins 构建 URL（原生） | `http://jenkins/job/foo/123/`、`https://ci.openeuler.openatom.cn/job/a/job/b/4/` | 走脚本 `--url`，自动探测后端（原生 `/api/json`），全量日志缓存到本地临时目录，每轮只输出窗口 |
 | Jenkins 构建 URL（Log Viewer） | `https://log-ci.openeuler.openatom.cn/job/<jobPath>/<构建号>` | 走脚本 `--url`，自动探测后端（SPA + `/api/build/*`），日志经 `/api/build/log/download` 下载后同样窗口读取 |
+| 门禁 item（folder）级告警 | 只有 item 名（如 `multiarch/openeuler/aarch64`），无具体 job | 先按下方「item → 最近失败任务」配方定位最近失败任务，再走 URL 模式 |
 | 本地日志文件 | `build.log` / `/tmp/console.log` | 走脚本 `--file`（同样强制窗口读取） |
 | 粘贴的日志 | 直接贴的文本 | 直接分析，不触发日志读取；日志很长时优先分析尾部 |
 
 > **重要**：无论输入形式如何，都不要试图读取全量日志。判定是否需要更多内容的标准是"能否定性"，不是"是否还有未读内容"。
+
+### 门禁 item（folder）级告警：item → 最近失败任务
+
+item 级告警（如 `JenkinsGateItemNoSuccess`）只给 item（= Jenkins folder），排查必须先
+找到**该 item 下最近失败的任务**再拉日志。中心 Prometheus 的 job 级指标可直接定位
+（`job` 标签 = 任务全路径，`job_url` 标签直达任务页，数值 = 最近失败构建号）：
+
+```bash
+# Bearer 用环境变量 HOLMES_GRAFANA_TOKEN（Grafana SA Token）；item 换成告警里的实际值
+curl -s -G -H "Authorization: Bearer $HOLMES_GRAFANA_TOKEN" \
+  --data-urlencode 'query=jenkins_job_last_failed_build{env="prod", job=~"<item>/.*"} > 0' \
+  "${GRAFANA_URL:-https://monitoring.osinfra.cn/grafana}/api/datasources/proxy/uid/PBFA97CFB590B2093/api/v1/query"
+# 结果每组 = 一个最近失败任务：job=<item>/<任务名>，job_url=任务页，value=<最近失败构建号>
+# 拉日志：fetch_jenkins_log.py --url "<job_url>/<构建号>/" --window 200
+```
+
+任务选择纪律：优先取构建号最新（最近失败）的 1~2 个任务定性；多个任务失败模式一致 →
+是平台/环境问题（回到 Step 4 类型 A）；各自不同 → 逐个看，多半是业务问题（类型 B）。
+item 页面（人工核对用）：`https://ci.openeuler.openatom.cn/job/` 后把 item 的每个 `/`
+换成 `/job/`（如 `multiarch/openeuler/aarch64` →
+`https://ci.openeuler.openatom.cn/job/multiarch/job/openeuler/job/aarch64/`）。
 
 ---
 
