@@ -16,6 +16,16 @@ compatibility:
 - 统计某服务的错误类型分布（按 `msg` 聚合）
 - 查 squid 代理访问日志（cn12-001 集群）
 - 用户提供《社区服务日志（LTS）》大盘链接，需要按同样条件取数分析
+- 告警分析（Keep→Holmes 的告警根因请求，或人工问"XX 服务为什么挂了"）——见下方"告警驱动用法"
+
+## 告警驱动用法
+
+告警分析时参数直接取告警标签，不询问用户：
+
+- `--cluster` 用告警的 `cluster` 标签（**Prometheus 指标口径**，如 `ascend-guiyang-prod-cluster`、`mindspore-cn-north1-new-cluster`——脚本已做指标口径→LTS 流的别名映射，直接传即可）
+- `--service` 用告警的 `service` 标签
+- 时间窗默认告警前 60 分钟（`--minutes 60`），按告警时间调整
+- 完整排查流程（Down 告警的 Agent 断流交叉验证、request_id 追踪、已知错误模式速查、输出格式）见 `microservice-alert-rca` skill 的 runbook
 
 ## 前置要求
 

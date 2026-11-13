@@ -1,0 +1,29 @@
+{
+  "skill_name": "microservice-alert-rca",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "分析告警 OmWebserverDown（集群 ascend-guiyang-prod-cluster，服务 om-webserver，存活实例数为 0）",
+      "expected_output": "不直接下'宕机'结论：先按 runbook 第 1 步查 LTS 日志（--cluster ascend-guiyang-prod-cluster --service om-webserver --level error），再按第 2 步交叉验证同集群其他服务指标是否同时消失（区分 Agent 断流 vs 真宕机），输出根因/影响/修复建议/置信度四段",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "分析告警 OmWebserverHttp5xxRateHigh（uri=/oneid/hwaccount/getSdkInfo，5xx 比例超 5%）",
+      "expected_output": "查 LTS error 日志定位该 uri 的报错，识别已知模式 getSdkInfo NoHttpResponseException（华为云账号服务外部依赖问题），可用 request_id 追踪单请求；根因指向外部依赖而非服务自身，修复建议围绕依赖排查",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "app-cla-server 报错 send cla notify email failed: admin name is null，是什么问题？",
+      "expected_output": "识别为已知错误模式（第 4 步速查表）：企业管理员数据质量问题，建议补齐管理员姓名数据，明确不是基础设施故障、无需重启",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "ascend 的 om-webserver 最近一直报错，帮我看看是什么问题",
+      "expected_output": "交互式场景同样走 runbook：--cluster ascend-guiyang-prod-cluster --service om-webserver --level error 查日志，量级大先 --top-msg，再读明细并引用 location/error 证据，输出四段式结论",
+      "files": []
+    }
+  ]
+}
